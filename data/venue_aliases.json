@@ -1,0 +1,6 @@
+{
+ "_comment": "Venue names used by Semantic Scholar/OpenAlex that differ too much from the CCF full name for fuzzy matching. Only add entries you have verified. Format: normalized-or-plain venue name -> CCF abbreviation (as in CCF2026-UTF8.csv column 刊物名称).",
+ "Adaptive Agents and Multi-Agent Systems": "AAMAS",
+ "Neural Information Processing Systems": "NeurIPS",
+ "Annual Conference on Genetic and Evolutionary Computation": "GECCO"
+}

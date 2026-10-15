@@ -1,0 +1,7 @@
+data/*.part
+__pycache__/
+*.pyc
+# user prompt overrides belong in <lineage-dir>/prompts/, never in the skill; ignore stray copies
+prompts/
+*.local.md
+.DS_Store

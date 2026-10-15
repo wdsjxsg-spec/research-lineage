@@ -1,0 +1,61 @@
+{
+  "_doc": "research-lineage automation config. Put it in the project root as research-lineage.json; paths are relative to it. Keys starting with _ are ignored. Guide: references/automation.md",
+  "title": "RAG 幻觉评测：研究脉络",
+  "lang": "zh",
+  "paths": {
+    "papers": "papers",
+    "inbox": "papers/00-inbox",
+    "archive": "archive",
+    "lineage": "lineage",
+    "state": "automation",
+    "notes": "papers/summaries.md",
+    "scope": "lineage/prompts/scope.md"
+  },
+  "categories": {
+    "01-benchmarks": "幻觉评测基准与指标",
+    "02-detection": "幻觉检测方法"
+  },
+  "index_note": "范围见 lineage/prompts/scope.md。",
+  "crawl": {
+    "enabled": true,
+    "days": 14,
+    "max_per_query": 50,
+    "sources": ["arxiv", "s2", "openalex"],
+    "_queries_doc": "arXiv search_query syntax (all:, ti:, abs:, AND/OR, quoted phrases); OpenAlex title_and_abstract.search syntax (AND/OR/NOT, quoted phrases)",
+    "arxiv_queries": [
+      "all:\"retrieval-augmented\" AND all:hallucination AND (all:benchmark OR all:evaluation OR all:detection)",
+      "all:RAG AND all:faithfulness AND (all:metric OR all:benchmark)"
+    ],
+    "openalex_queries": [
+      "(\"retrieval-augmented generation\" OR RAG) AND hallucination AND (benchmark OR evaluation OR detection)"
+    ],
+    "_anchors_doc": "arXiv IDs of core papers: new papers citing them are candidates. anchor_titles: core papers without an arXiv ID (resolved in OpenAlex by exact title)",
+    "anchors": ["2309.01431"],
+    "anchor_titles": [],
+    "scoring": {
+      "_doc": "regexes are matched against lowercased title / title+abstract; see the Rules docstring in automation/crawl.py",
+      "min_score": 4,
+      "exclude": "medical imaging|protein|speech recognition",
+      "require": "retriev|rag\\b|grounded",
+      "title_reject": "\\bdataset\\b:|:\\s*v\\d+\\.\\d",
+      "groups": [
+        {"name": "topic", "regex": "hallucinat|faithful|groundedness|factual consisten", "title": 3, "text": 2, "required": true},
+        {"name": "eval", "regex": "benchmark|evaluat|metric|detect|measur", "title": 2, "text": 1, "required": true}
+      ],
+      "vetoes": [],
+      "penalties": [{"regex": "image caption|vision-language", "title": -4, "text": -2, "unless_group_in_title": "topic"}],
+      "no_abstract": -1
+    },
+    "_auto_ingest_doc": "optional: candidates passing these strict title rules skip the inbox and go straight into a category (reviewed weekly). Set to null to send everything to the inbox.",
+    "auto_ingest": {
+      "category": "01-benchmarks",
+      "min_score": 6,
+      "require_abstract": true,
+      "formal_only": true,
+      "title_require": ["hallucinat|faithful", "benchmark|evaluat"],
+      "title_exclude": "image|video|multimodal"
+    }
+  },
+  "schedule": {"daily": "0 9 * * *", "weekly": "0 10 * * 1"},
+  "weekly": {"enabled": true}
+}

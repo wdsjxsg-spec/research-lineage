@@ -1,0 +1,7 @@
+source: https://github.com/hitfyd/ShowJCR/tree/4687a8f608f20aaf004299992f5d347dba009361 (GPL-3.0 repo)
+files: CCF 推荐目录 2026, 中科院分区表升级版 2025 (FQBJCR2025), JCR 2025, 新锐分区 2026 (XR2026 + 会议), 国际期刊预警名单 2025 (GJQKYJMD2025)
+note: 分区/影响因子数据版权归 Clarivate / 中国科学院文献情报中心 等原发布方，仓库附带原样副本，声明见 data/README.md
+download: python3 -I scripts/fetch_data.py            (pinned commit, sha256-checked)
+update:   python3 -I scripts/fetch_data.py --commit <newer SHA> --force
+          newer releases rename files by year (e.g. JCR2026-UTF8.csv): update TIER_FILES in scripts/venues.py,
+          and check that column names used in load_tiers() still exist.
