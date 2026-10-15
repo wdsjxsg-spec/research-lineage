@@ -1,0 +1,16 @@
+会议缩写,Journal,分区,Top,会议网站
+ACL,Annual Meeting of the Association for Computational Linguistics,1,Top,https://aclanthology.org
+CVPR,IEEE/CVF Conference on Computer Vision and Pattern Recognition,1,Top,https://ieeexplore.ieee.org/xpl/conhome/11091818/proceeding
+FOCS,IEEE Symposium on Foundations of Computer Science,1,Top,https://ieeexplore.ieee.org/xpl/conhome/10755992/proceeding
+ICML,International Conference on Machine Learning,1,Top,https://proceedings.mlr.press
+ICSE,International Conference on Software Engineering,1,Top,https://dl.acm.org/conference/icse
+IEEE S&P,IEEE Symposium on Security and Privacy,1,Top,https://ieeexplore.ieee.org/xpl/conhome/11023178/proceeding
+ISCA,International Symposium on Computer Architecture,1,Top,https://dl.acm.org/conference/isca
+KDD,ACM SIGKDD Conference on Knowledge Discovery and Data Mining,1,Top,https://dl.acm.org/conference/kdd
+NeurIPS,Conference on Neural Information Processing Systems,1,Top,https://papers.nips.cc
+OSDI,USENIX Symposium on Operating Systems Design and Implementation,1,Top,https://www.usenix.org/publications/proceedings
+SIGCOMM,ACM SIGCOMM Conference,1,Top,https://dl.acm.org/conference/sigcomm
+SIGMOD,ACM SIGMOD Conference on Management of Data,1,Top,https://dl.acm.org/conference/sigmod
+SOSP,ACM Symposium on Operating Systems Principles,1,Top,https://dl.acm.org/conference/sosp
+STOC,ACM Symposium on Theory of Computing,1,Top,https://dl.acm.org/conference/stoc
+VLDB,International Conference on Very Large Data Bases,1,Top,https://vldb.org/pvldb/
