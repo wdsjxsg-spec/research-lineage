@@ -61,6 +61,14 @@ daily job retries until the papers are added — use it when an API is rate-limi
     `lineage/updates.md`, and which files they edit to steer things: `lineage/prompts/*.md`, the local weekly prompt,
     and `research-lineage.json` for queries and rules.
 
+## Building a collection from nothing
+
+The same config drives `crawl.py --bootstrap --since <year>`: no recency limit, relevance-sorted arXiv and OpenAlex
+queries, the anchors' references (backward) and citations (forward), scored by the rules, listed in
+`<inbox>/bootstrap-<date>/candidates.tsv` without downloading. Approved papers are added with `add_papers.py`
+(`<category>|<id>`, id may be `title:<exact title>`). The full user-facing procedure is step 0 of SKILL.md. Candidates
+listed once are recorded in `seen.json`, so neither a second bootstrap round nor the daily crawler repeats them.
+
 ## Changing scope later
 
 Edit `scope.md` first, then the queries and scoring in `research-lineage.json`, then re-run `--eval`. Papers moved out

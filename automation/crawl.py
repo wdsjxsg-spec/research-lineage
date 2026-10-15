@@ -10,12 +10,17 @@ with --auto-ingest, candidates passing the strict "auto_ingest" rules go straigh
 
 Usage: python3 -I crawl.py --config research-lineage.json [--days 14] [--dry-run] [--auto-ingest] [--sources arxiv,s2,openalex]
        python3 -I crawl.py --config research-lineage.json --eval     # score the current collection and archive (no network)
+       python3 -I crawl.py --config research-lineage.json --bootstrap [--since 2018]
+            build a collection from scratch: no recency limit, relevance-sorted queries, anchors' references AND citations;
+            nothing is downloaded — candidates go to <inbox>/bootstrap-<date>/candidates.tsv + REPORT.md for review,
+            then approved ones are added with add_papers.py
 """
 import argparse, datetime as dt, difflib, json, os, re, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (Config, config_arg, load_json, save_json, norm_title, title_from_file, sanitize, walk_pdfs,  # noqa: E402
-                    arxiv_search, arxiv_lookup, s2_citing, oa_get, oa_to_cand, download, link_of, OA_SELECT, ARXIV_ID)
+                    arxiv_search, arxiv_lookup, s2_citing, oa_get, oa_to_cand, oa_works_by_ids, download, link_of,
+                    OA_SELECT, ARXIV_ID)
 
 DEFAULT_REPOSITORY = r"zenodo|ssrn|research square|techrxiv|preprints\.org|authorea|figshare|social science research network"
 
@@ -180,6 +185,35 @@ def evaluate(cfg, rules):
         print(f"  [{p['score']}]{' AUTO' if p['auto'] else ''} {p['title'][:100]}")
 
 
+# ---------------------------------------------------------------- bootstrap
+def bootstrap_report(cfg, picked, fresh, today, seen, seen_path, rules, T):
+    """List candidates for building a collection; nothing is downloaded. Candidates are recorded in seen.json so daily
+    tracking will not offer them again — the ones the user approves are added with add_papers.py."""
+    d = os.path.join(cfg["inbox"], f"bootstrap-{today}")
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, "candidates.tsv"), "w", encoding="utf-8") as f:
+        f.write("score\tid\tpublished\tvenue\ttitle\tvia\tlink\n")
+        for p in picked:
+            cells = [p["score"], p["id"], p["published"], p.get("venue") or ("arXiv" if p.get("arxiv") else ""),
+                     p["title"], p["via"], link_of(p)]
+            f.write("\t".join(str(c).replace("\t", " ").replace("\n", " ") for c in cells) + "\n")
+    rep = [f"# Bootstrap candidates {today}", "",
+           f"{len(picked)} candidates scored >= {rules.min_score} (of {len(fresh)} unseen). Review them against the scope; "
+           "approved ones go into a list file (`<category>|<id>` per line) for add_papers.py.", ""]
+    for p in picked:
+        rep += [f"## [{p['score']}] {p['title']}",
+                f"- id `{p['id']}` | {p['published']} | {p.get('venue') or ('arXiv' if p.get('arxiv') else '')} | {link_of(p)}",
+                f"- {T['via']}: {p['via']}",
+                f"- {T['abs']}: {(p.get('abstract') or T['noabs'])[:500]}", ""]
+    open(os.path.join(d, "REPORT.md"), "w", encoding="utf-8").write("\n".join(rep))
+    for p in fresh:
+        if p["score"] >= rules.min_score:
+            seen[p["id"]] = {"date": today, "title": p["title"], "score": p["score"], "kept": True, "bootstrap": True,
+                             "source": "arxiv" if p.get("arxiv") else "openalex"}
+    save_json(seen_path, seen)
+    print(f"bootstrap: {len(picked)} candidates -> {cfg.rel(d)}/candidates.tsv (nothing downloaded)")
+
+
 # ---------------------------------------------------------------- main
 TEXT = {
     "zh": {"head": "# 新论文审核报告 {d}", "intro": "共 {n} 篇候选(已下载到本目录)。确认相关后移入 papers/ 对应分类;不相关的移到 archive/(已记入 seen.json,不会再次抓取)。",
@@ -201,6 +235,8 @@ def main():
     ap.add_argument("--mark-seen", action="store_true", help="record current candidates in seen.json without downloading")
     ap.add_argument("--sources", default=None, help="comma-separated: arxiv,s2,openalex")
     ap.add_argument("--auto-ingest", action="store_true")
+    ap.add_argument("--bootstrap", action="store_true", help="build a collection: no recency limit, references too, list only")
+    ap.add_argument("--since", type=int, default=2000, help="--bootstrap: earliest publication year")
     a = ap.parse_args()
     cfg = Config(a.config)
     C = cfg.get("crawl") or {}
@@ -208,14 +244,15 @@ def main():
     if a.eval:
         return evaluate(cfg, rules)
     days = a.days or C.get("days", 14)
-    per_q = a.max_per_query or C.get("max_per_query", 50)
+    per_q = a.max_per_query or (100 if a.bootstrap else C.get("max_per_query", 50))
     sources = set((a.sources or ",".join(C.get("sources", ["arxiv", "s2", "openalex"]))).split(","))
     anchors, anchor_titles = C.get("anchors", []), C.get("anchor_titles", [])
     T = TEXT.get(cfg.lang, TEXT["en"])
     auto_cat = (rules.auto or {}).get("category")
 
     today = dt.date.today().isoformat()
-    cutoff = (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    cutoff = f"{a.since}-01-01" if a.bootstrap else (dt.date.today() - dt.timedelta(days=days)).isoformat()
+    sort_ax = "relevance" if a.bootstrap else "submittedDate"
     seen_path = cfg.state("seen.json")
     have, have_titles = existing(cfg)
     seen = load_json(seen_path, {})
@@ -231,7 +268,7 @@ def main():
     if "arxiv" in sources:
         for q in C.get("arxiv_queries", []):
             try:
-                for p in arxiv_search(q, per_q):
+                for p in arxiv_search(q, per_q, sort_ax):
                     if p["published"] >= cutoff:
                         p["arxiv"] = p["id"]; add(p)
             except Exception as ex:
@@ -249,8 +286,11 @@ def main():
         n0 = len(cands)
         for q in C.get("openalex_queries", []):
             try:
-                d = oa_get("works", {"filter": f"title_and_abstract.search:{q},from_publication_date:{cutoff}",
-                                     "sort": "publication_date:desc", "per-page": min(200, per_q), "select": OA_SELECT})
+                params = {"filter": f"title_and_abstract.search:{q},from_publication_date:{cutoff}",
+                          "per-page": min(200, per_q), "select": OA_SELECT}
+                if not a.bootstrap:
+                    params["sort"] = "publication_date:desc"  # otherwise OpenAlex ranks by relevance
+                d = oa_get("works", params)
                 for w in d.get("results", []):
                     c = oa_to_cand(w, "openalex: " + q)
                     if c: add(c)
@@ -266,6 +306,13 @@ def main():
             except Exception as ex:
                 print(f"[warn] OpenAlex citations failed for {wid}: {ex}", file=sys.stderr)
             time.sleep(0.5)
+            if a.bootstrap:  # backward snowballing: what the anchors build on
+                try:
+                    refs = oa_get(f"works/{wid}", {"select": "referenced_works"}).get("referenced_works") or []
+                    for c in oa_works_by_ids([r.rsplit("/", 1)[-1] for r in refs], f"cited by anchor (OpenAlex {wid})"):
+                        add(c)
+                except Exception as ex:
+                    print(f"[warn] OpenAlex references failed for {wid}: {ex}", file=sys.stderr)
         print(f"openalex: +{len(cands) - n0} candidates", file=sys.stderr)
 
     fresh = [p for i, p in cands.items() if i not in have and i not in seen
@@ -282,6 +329,8 @@ def main():
     for p in picked:
         p["auto"] = a.auto_ingest and rules.auto_ok(p)
     picked.sort(key=lambda p: (-p["score"], p["published"]))
+    if a.bootstrap:
+        return bootstrap_report(cfg, picked, fresh, today, seen, seen_path, rules, T)
 
     ndup = sum(1 for p in fresh if p.get("dup_of"))
     print(f"{today}: {len(cands)} candidates, {len(fresh)} unseen ({ndup} near-duplicates of existing papers), {len(picked)} relevant")

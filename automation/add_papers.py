@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Add approved papers to a category (downloads PDF, records abstract for one-line summaries).
-List file, one per line: <category folder>|<ID>, ID = arXiv ID, doi:<DOI> or openalex:<W...>. Lines starting with # are skipped.
+List file, one per line: <category folder>|<ID>, ID = arXiv ID, doi:<DOI>, openalex:<W...> or title:<exact title>
+(titles are resolved in OpenAlex; a paper with an arXiv version is fetched from arXiv). Lines starting with # are skipped.
 Failed downloads become 0-byte placeholders. Exit 1 only if metadata could not be found (so a scheduled run retries).
 Usage: python3 -I add_papers.py --config research-lineage.json <list_file>
 """
 import argparse, os, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import Config, config_arg, load_json, save_json, sanitize, arxiv_lookup, download, oa_get, oa_to_cand, OA_SELECT, ARXIV_ID  # noqa: E402
+from common import (Config, config_arg, load_json, save_json, sanitize, arxiv_lookup, download, oa_get, oa_to_cand,  # noqa: E402
+                    oa_find_title, OA_SELECT, ARXIV_ID)
 
 
 def main():
@@ -21,9 +23,14 @@ def main():
     for cat, pid in pairs:
         if ARXIV_ID.match(pid):
             continue
-        ref = pid.replace("openalex:", "")
         try:
-            oa[pid] = oa_to_cand(oa_get(f"works/{ref}", {"select": OA_SELECT}), "manual")
+            if pid.startswith("title:"):
+                w = oa_find_title(pid[6:].strip())
+                if not w:
+                    print(f"MISSING-META {pid} (no exact title match in OpenAlex)"); continue
+            else:
+                w = oa_get(f"works/{pid.replace('openalex:', '')}", {"select": OA_SELECT})
+            oa[pid] = oa_to_cand(w, "manual")
         except Exception as ex:
             print(f"MISSING-META {pid}: {ex}")
         time.sleep(0.3)

@@ -1,6 +1,6 @@
 ---
 name: research-lineage
-description: Map how a research field developed from a collection of papers — citation graph (arXiv, Semantic Scholar, OpenAlex), a question tree showing how research questions were asked, answered, challenged or reopened, foundational/bridge/frontier papers, lineage chains, gaps and likely-missing papers, publication status and venue tiers (arXiv-only vs published; CCF, 中科院分区, JCR, 新锐分区, 预警名单), a narrative report and one interactive HTML page; can also set up scheduled crawling and updates. Use whenever the user wants the development, evolution, 脉络, 演进, history, open problems or research questions (研究问题、问题脉络) of a set of papers or a field, a literature / citation / knowledge map (研究脉络图、文献图谱), seminal or missing papers, where papers were published (发表情况、期刊会议等级、CCF/中科院/JCR 分区统计、how many are arXiv-only), or wants the collection kept up to date automatically (定时更新、自动追踪新论文、cron) — even if they don't say "lineage".
+description: Map how a research field developed from a collection of papers — citation graph (arXiv, Semantic Scholar, OpenAlex), a question tree showing how research questions were asked, answered, challenged or reopened, foundational/bridge/frontier papers, lineage chains, gaps and likely-missing papers, publication status and venue tiers (arXiv-only vs published; CCF, 中科院分区, JCR, 新锐分区, 预警名单), a narrative report and one interactive HTML page; can also build the collection from a topic or seed papers (建论文集、找相关论文) and set up scheduled updates. Use whenever the user wants the development, evolution, 脉络, 演进, history, open problems or research questions (研究问题、问题脉络) of a set of papers or a field, a literature / citation / knowledge map (研究脉络图、文献图谱), seminal or missing papers, where papers were published (发表情况、期刊会议等级、CCF/中科院/JCR 分区统计、how many are arXiv-only), or wants the collection kept up to date automatically (定时更新、自动追踪新论文、cron) — even if they don't say "lineage".
 ---
 
 # Research Lineage
@@ -26,6 +26,20 @@ The judgement steps can be steered by the user without editing this skill. Befor
 - A missing file, or one containing only `<!-- -->` comments, means "use the defaults".
 - When the user states a lasting preference in chat ("以后报告都要先写空白", "always name questions in Chinese"), write it into the matching file (create `prompts/` if needed) instead of honouring it only once, and tell them which file you changed.
 - Templates with explanations are in `prompts.example/` next to this file; offer them when the user wants to customise. Never write user preferences into the skill folder itself — it is a git checkout and `git pull` would conflict with or drop them.
+
+### 0. No collection yet? Build one from the user's input
+
+If the user gives a topic, keywords, a few seed papers (arXiv IDs, DOIs, titles) or a reference paper instead of a folder of PDFs, build the collection first:
+
+1. **Agree the scope.** Draft `<lineage-dir>/prompts/scope.md` with the user from `prompts.example/scope.md`: anchor papers (their seeds, or 3–5 you find and they confirm), inclusion test, exclusions, earliest year, and 2–4 category folders.
+2. **Write `research-lineage.json`** in the project root (queries, anchors, scoring rules, categories — `references/automation.md` step 4 explains how to derive them from the scope).
+3. **Seeds first:** put the user's papers in a list file, one `<category>|<id>` per line (id = arXiv ID, `doi:…`, `openalex:W…` or `title:<exact title>`), and run `python3 -I automation/add_papers.py --config research-lineage.json <list>`. These become `papers/<category>/` files (0-byte placeholders when no open-access PDF exists).
+4. **Find candidates:** `python3 -I automation/crawl.py --config research-lineage.json --bootstrap --since <year>` — relevance-ranked queries plus the anchors' references and citations, scored by the rules; nothing is downloaded. Output: `papers/00-inbox/bootstrap-<date>/candidates.tsv` and `REPORT.md`.
+5. **Review with the user.** Read the candidates against the scope and present them in three groups — include / maybe / exclude — with one-line reasons; the user decides the "maybe"s. Write the approved ones to a list file and run `add_papers.py`.
+6. **Optionally snowball once more:** add the strongest new core papers to `anchors` and re-run step 4 (already-listed candidates are not repeated).
+7. Continue with step 1 below (`collect.py --dir papers`). Offer scheduled updates (see **Scheduled updates**) since the config already exists.
+
+Keep the user in the loop at steps 1 and 5 — a collection assembled without their judgement inherits every flaw of the keyword rules.
 
 ### 1. Collect
 

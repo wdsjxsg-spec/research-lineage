@@ -40,6 +40,14 @@ git clone https://github.com/wdsjxsg-spec/research-lineage.git ~/.claude/skills/
 
 ## 使用
 
+**还没有论文？** 直接告诉 Claude 主题和几篇你认可的代表论文(arXiv 号、DOI 或标题都行):
+
+> 帮我建一个"RAG 幻觉评测"的论文集，代表作是 2309.01431,只要 2022 年以后的
+
+Claude 会先和你确定范围(`scope.md`),再按相关度检索 arXiv / OpenAlex,并沿代表作的参考文献和被引继续找，按规则打分后列出候选(不下载);你确认后批量下载入库，然后进入下面的脉络分析。
+
+**已有论文:**
+
 在 Claude Code 中打开存放论文的目录，直接说:
 
 > 分析 papers/ 里这批论文的研究脉络

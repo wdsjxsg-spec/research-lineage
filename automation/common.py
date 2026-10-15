@@ -136,11 +136,12 @@ def _arxiv_entries(t):
     return out
 
 
-def arxiv_search(q, n=50):
+def arxiv_search(q, n=50, sort="submittedDate"):
+    """sort: submittedDate (newest first, for daily tracking) or relevance (for building a collection)."""
     t = ""
     for start in range(0, n, 100):
         url = ("http://export.arxiv.org/api/query?search_query=" + urllib.parse.quote(q)
-               + f"&start={start}&max_results={min(100, n - start)}&sortBy=submittedDate&sortOrder=descending")
+               + f"&start={start}&max_results={min(100, n - start)}&sortBy={sort}&sortOrder=descending")
         page = get(url).decode("utf-8", "ignore")
         t += page
         if page.count("<entry>") < min(100, n - start):
@@ -181,6 +182,25 @@ def oa_get(path, params):
     if os.environ.get("OPENALEX_API_KEY"): params["api_key"] = os.environ["OPENALEX_API_KEY"]
     url = f"{OPENALEX}/{path}?" + urllib.parse.urlencode(params, safe=":,|!")
     return json.loads(get(url, tries=4))
+
+
+def oa_works_by_ids(wids, via):
+    """Fetch OpenAlex works by W-id in batches of 50 and convert them to candidates."""
+    out = []
+    for i in range(0, len(wids), 50):
+        try:
+            d = oa_get("works", {"filter": "openalex_id:" + "|".join(wids[i:i + 50]), "per-page": 50, "select": OA_SELECT})
+            out += [c for c in (oa_to_cand(w, via) for w in d.get("results", [])) if c]
+        except Exception as ex:
+            print(f"[warn] OpenAlex batch failed: {ex}", file=sys.stderr)
+        time.sleep(0.3)
+    return out
+
+
+def oa_find_title(title):
+    """Resolve a title to an OpenAlex work (exact match after normalisation), or None."""
+    r = oa_get("works", {"filter": "title.search:" + re.sub(r"[,:|]", " ", title), "per-page": 5, "select": OA_SELECT})["results"]
+    return next((w for w in r if norm_title(w.get("title")) == norm_title(title)), None)
 
 
 def oa_abstract(inv):

@@ -11,5 +11,6 @@
 - 网页：报告、问题脉络、时间线、引文网络、发表情况五个标签页;图表可缩放平移;论文表可检索、排序。
 - 自定义提示词：项目内 `lineage/prompts/`(scope / questions / narrative / extra),模板在 `prompts.example/`。
 - 等级表：随仓库附带 ShowJCR 原样副本(声明见 `data/README.md`);`scripts/fetch_data.py` 可从固定提交重新下载并校验。
+- 从主题建库:`crawl.py --bootstrap`(不限近期、按相关度、沿种子论文的参考文献与被引扩展，只列候选不下载),`add_papers.py` 支持 `title:` 标题输入;流程见 SKILL.md 第 0 步。
 - 自动更新:`automation/`(通用爬虫 + 每日重建 + 每周 `claude -p` 审核与标注 + cron 安装),领域规则写在项目的 `research-lineage.json`,配置流程见 `references/automation.md`。
 - 安装：`install.sh`(克隆或更新;缺少等级表时自动补下载)。
